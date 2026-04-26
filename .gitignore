@@ -135,3 +135,12 @@ dmypy.json
 # OS
 .DS_Store
 Thumbs.db
+
+# Project specific
+database.db
+*.db
+*.sqlite
+*.sqlite3
+
+# rough files
+learn

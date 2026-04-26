@@ -1,16 +1,20 @@
 # Wandr
 
-A FastAPI-based travel trip management application.
+A FastAPI-based travel trip management application with SQLModel and SQLite database integration.
 
 ## Features
 
-- Trip model with user ID, country, duration, vibe, tips, and public status
-- CRUD endpoints for managing trips:
-  - GET /trips - Retrieve all trips
+- **Trip Management**: Full CRUD operations for travel trips
+- **Database Integration**: SQLite database with SQLModel (SQLAlchemy + Pydantic)
+- **API Endpoints**:
+  - GET /trips - Retrieve all trips (with pagination)
   - GET /trips/{id} - Retrieve a specific trip by ID
-  - POST /trip - Add a new trip
-  - PUT /trips/{id} - Update an existing trip
+  - POST /trips - Create a new trip
+  - PATCH /trips/{id} - Update an existing trip
   - DELETE /trips/{id} - Delete a trip
+- **Data Models**: TripBase, Trip, TripCreate, TripPublic, TripUpdate with proper validation
+- **Testing**: Comprehensive pytest suite with isolated database tests
+- **Migrations**: Alembic support for database schema changes
 
 ## Setup
 
@@ -20,20 +24,33 @@ A FastAPI-based travel trip management application.
    cd wandr
    ```
 
-2. Install dependencies (if using pip):
+2. Create and activate virtual environment:
    ```bash
-   pip install fastapi pydantic
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
    ```
 
-3. Run the application:
+3. Install dependencies:
    ```bash
-   fastapi dev main.py
+   pip install -r requirements.txt
    ```
 
-   Or using the configured entrypoint:
+4. Run the application:
    ```bash
-   fastapi run
+   uvicorn app.main:app --reload
    ```
+
+   Or using FastAPI CLI:
+   ```bash
+   fastapi dev app/main.py
+   ```
+
+## Testing
+
+Run the test suite:
+```bash
+pytest
+```
 
 ## API Documentation
 
@@ -41,6 +58,31 @@ Once running, visit `http://localhost:8000/docs` for interactive API documentati
 
 ## Project Structure
 
-- `main.py`: Main FastAPI application with routes and models
-- `trips.py`: Additional trip-related models (if any)
-- `pyproject.toml`: Project configuration
+```
+wandr/
+├── app/
+│   ├── __init__.py
+│   ├── main.py          # FastAPI application with endpoints
+│   ├── models.py        # SQLModel data models (Trip, TripCreate, etc.)
+│   └── database.py      # Database engine and session management
+├── tests/
+│   ├── conftest.py      # Pytest fixtures and configuration
+│   ├── test_models.py   # Tests for models and database operations
+│   └── test_trips.py    # API endpoint tests
+├── alembic/
+│   └── versions/        # Database migration scripts
+├── alembic.ini          # Alembic configuration
+├── requirements.txt     # Python dependencies
+├── pyproject.toml       # Project configuration
+├── render.yaml          # Render deployment configuration
+├── .gitignore           # Git ignore rules
+└── README.md            # This file
+```
+
+## Database
+
+The application uses SQLite with SQLModel for type-safe database operations. Database tables are created automatically on startup. For production deployments, consider using a more robust database like PostgreSQL.
+
+## Deployment
+
+This project is configured for deployment on Render. See `render.yaml` for deployment settings.

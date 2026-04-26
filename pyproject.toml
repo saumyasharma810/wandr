@@ -1,4 +1,3 @@
 [tool.fastapi]
-# if structure is backend - main.py then entrypoint = "backend.main:app"
-entrypoint = "main:app"
+entrypoint = "app.main:app"
 
