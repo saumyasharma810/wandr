@@ -13,10 +13,29 @@ A FastAPI-based travel trip management application with SQLModel and SQLite data
   - PATCH /trips/{id} - Update an existing trip
   - DELETE /trips/{id} - Delete a trip
 - **Data Models**: TripBase, Trip, TripCreate, TripPublic, TripUpdate with proper validation
+- **Authentication**: JWT-based user registration and login with OAuth2 Bearer tokens
 - **Testing**: Comprehensive pytest suite with isolated database tests
 - **Migrations**: Alembic support for database schema changes
 
 ## Setup
+
+1. Copy environment example:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Edit `.env` and fill values:
+   ```env
+   SECRET_KEY=your-secret-key
+   ALGORITHM=HS256
+   ACCESS_TOKEN_EXPIRE_MINUTES=30
+   ```
+
+3. Create and activate virtual environment:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
 
 1. Clone the repository:
    ```bash
@@ -55,6 +74,13 @@ pytest
 ## API Documentation
 
 Once running, visit `http://localhost:8000/docs` for interactive API documentation.
+
+## Authentication
+
+- `POST /auth/register`: register a new user
+- `POST /auth/login`: obtain a JWT bearer token
+- Protected routes require the header `Authorization: Bearer <token>`
+- Use the Swagger UI `Authorize` button after login to call secured endpoints
 
 ## Project Structure
 

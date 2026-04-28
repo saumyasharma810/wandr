@@ -18,3 +18,20 @@ class TripUpdate(SQLModel):
     country: str | None = None
     duration_days: int | None = None
     is_public: bool | None = None
+
+class UserBase(SQLModel):
+    username: str = Field(unique=True, index=True)
+    email: str = Field(unique=True, index=True)
+
+class User(UserBase, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    hashed_password: str
+    is_active: bool = Field(default=True)
+
+class UserCreate(SQLModel):
+    username: str
+    email: str
+    password: str          # plain text — will be hashed before saving
+
+class UserPublic(UserBase):
+    id: int

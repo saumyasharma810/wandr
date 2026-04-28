@@ -1,12 +1,15 @@
 from typing import Annotated
 from fastapi import FastAPI, HTTPException, Query, Depends
 from sqlmodel import select
-from app.models import Trip, TripCreate, TripPublic, TripUpdate
+from app.models import Trip, TripCreate, TripPublic, TripUpdate, User, UserPublic
 from app.database import create_db_and_tables,Session, get_session
 from contextlib import asynccontextmanager
+from app.auth import router as auth_router, get_current_active_user
 
 # define SessionDep locally in main.py
 SessionDep = Annotated[Session, Depends(get_session)]
+
+CurrentUser = Annotated[User, Depends(get_current_active_user)]
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -15,9 +18,15 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+app.include_router(auth_router, prefix="/auth", tags=["auth"])
+
 @app.get("/")
 def home():
     return {"message": "hello"}
+
+@app.get("/users/me", response_model=UserPublic)
+async def read_users_me(current_user: Annotated[User, Depends(get_current_active_user)]):
+    return current_user
 
 @app.get("/trips", response_model=list[TripPublic])
 async def get_all_trips(session: SessionDep, offset: int = 0,
