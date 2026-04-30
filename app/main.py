@@ -25,25 +25,25 @@ def home():
     return {"message": "hello"}
 
 @app.get("/users/me", response_model=UserPublic)
-async def read_users_me(current_user: Annotated[User, Depends(get_current_active_user)]):
+def read_users_me(current_user: Annotated[User, Depends(get_current_active_user)]):
     return current_user
 
 @app.get("/trips", response_model=list[TripPublic])
-async def get_all_trips(session: SessionDep, offset: int = 0,
+def get_all_trips(session: SessionDep, offset: int = 0,
     limit: Annotated[int, Query(le=100)] = 100,
 ):
     trips = session.execute(select(Trip).offset(offset).limit(limit)).scalars().all()
     return trips
 
 @app.get("/trips/{id}", response_model=TripPublic)
-async def get_trip(id:int, session: SessionDep) -> Trip:
+def get_trip(id:int, session: SessionDep) -> Trip:
     trip = session.get(Trip, id)
     if not trip:
         raise HTTPException(status_code=404, detail="Trip not found")
     return trip
 
 @app.post("/trips", response_model=TripPublic)
-async def add_trip(trip: TripCreate, session: SessionDep) -> Trip:
+def add_trip(trip: TripCreate, session: SessionDep) -> Trip:
     db_trp = Trip.model_validate(trip)
     session.add(db_trp)
     session.commit()
@@ -51,7 +51,7 @@ async def add_trip(trip: TripCreate, session: SessionDep) -> Trip:
     return db_trp
 
 @app.delete("/trips/{id}")
-async def delete_trip(id:int, session: SessionDep):
+def delete_trip(id:int, session: SessionDep):
     trip = session.get(Trip, id)
     if not trip:
         raise HTTPException(status_code=404, detail="Trip not found")
@@ -60,7 +60,7 @@ async def delete_trip(id:int, session: SessionDep):
     return {"Status":"Ok"}
 
 @app.patch("/trips/{id}", response_model=TripPublic)
-async def update_trip(id: int, trip: TripUpdate ,session: SessionDep):
+def update_trip(id: int, trip: TripUpdate ,session: SessionDep):
     trip_db = session.get(Trip, id)
     if not trip_db:
         raise HTTPException(status_code=404, detail="Trip not found")

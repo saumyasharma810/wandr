@@ -57,7 +57,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     return encoded_jwt
 
 # get current user from jwt
-async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], session: SessionDep):
+def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], session: SessionDep):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -77,7 +77,7 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], sessio
     return user
 
 # check if the current user is active or not
-async def get_current_active_user(
+def get_current_active_user(
     current_user: Annotated[User, Depends(get_current_user)],
 ):
     if not current_user.is_active:
