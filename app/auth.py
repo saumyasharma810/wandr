@@ -13,6 +13,7 @@ from jwt.exceptions import InvalidTokenError, ExpiredSignatureError
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 import hashlib
+import uuid
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -71,7 +72,7 @@ def create_refresh_token(data: dict, session: Session, expires_delta: timedelta 
         expire = datetime.now(timezone.utc) + expires_delta
     else:
         expire = datetime.now(timezone.utc) + timedelta(days=7)
-    to_encode.update({"exp": expire})
+    to_encode.update({"exp": expire, "jti": str(uuid.uuid4())})
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     hashed_encoded_jwt = hash_token(encoded_jwt)
     db_refresh_token = RefreshToken(

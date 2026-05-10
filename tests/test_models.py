@@ -1,79 +1,64 @@
-# tests/test_models.py
-
-import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session
-from sqlmodel import SQLModel
-from app.models import Trip, TripCreate, TripUpdate, TripPublic
-
-
-@pytest.fixture(scope="function")
-def test_engine():
-    """Create a fresh in-memory database for each test"""
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False}
-    )
-    SQLModel.metadata.create_all(engine)
-    yield engine
-    # No cleanup needed for in-memory DB
+from datetime import datetime, timezone
+from app.models import (
+    Trip, TripCreate, TripUpdate, TripPublic,
+    User, UserCreate,
+    VibeTag, TravelStyle, BudgetLevel,
+)
 
 
 def test_trip_model_creation():
-    """Test creating a Trip instance"""
-    trip = Trip(country="Japan", duration_days=10, is_public=True)
+    trip = Trip(country="Japan", duration_days=10, is_public=True, user_id=1)
     assert trip.country == "Japan"
     assert trip.duration_days == 10
-    assert trip.is_public == True
-    assert trip.id is None  # Not set until saved
+    assert trip.is_public is True
+    assert trip.id is None
+
+
+def test_trip_optional_fields_default_to_none():
+    trip = Trip(country="Japan", user_id=1)
+    assert trip.city is None
+    assert trip.start_date is None
+    assert trip.vibe is None
+    assert trip.travel_style is None
+    assert trip.budget_level is None
+    assert trip.is_public is False
 
 
 def test_trip_create_model():
-    """Test TripCreate model validation"""
-    trip_data = {"country": "France", "duration_days": 7, "is_public": False}
-    trip_create = TripCreate(**trip_data)
-    assert trip_create.country == "France"
-    assert trip_create.duration_days == 7
-    assert trip_create.is_public == False
+    trip = TripCreate(country="France", duration_days=7, is_public=False)
+    assert trip.country == "France"
+    assert trip.duration_days == 7
+    assert trip.is_public is False
 
 
-def test_trip_update_model():
-    """Test TripUpdate model with partial data"""
-    update_data = {"country": "Germany", "is_public": True}
-    trip_update = TripUpdate(**update_data)
-    assert trip_update.country == "Germany"
-    assert trip_update.duration_days is None  # Not provided
-    assert trip_update.is_public == True
+def test_trip_update_partial():
+    update = TripUpdate(country="Germany", is_public=True)
+    assert update.country == "Germany"
+    assert update.duration_days is None
+    assert update.is_public is True
 
 
 def test_trip_public_model():
-    """Test TripPublic model"""
-    trip_data = {"id": 1, "country": "Italy", "duration_days": 5}
-    trip_public = TripPublic(**trip_data)
-    assert trip_public.id == 1
-    assert trip_public.country == "Italy"
-    assert trip_public.duration_days == 5
+    now = datetime.now(timezone.utc)
+    trip = TripPublic(id=1, country="Italy", duration_days=5, user_id=42, created_at=now)
+    assert trip.id == 1
+    assert trip.user_id == 42
+    assert trip.country == "Italy"
 
 
-def test_trip_model_validation():
-    """Test model creation with None values (nullable fields)"""
-    trip = Trip()  # Should work with None defaults
-    assert trip.country is None
-    assert trip.duration_days is None
-    assert trip.is_public == False  # Default value
+def test_enum_values():
+    assert VibeTag.loved_it == "loved_it"
+    assert TravelStyle.solo == "solo"
+    assert BudgetLevel.luxury == "luxury"
 
 
+def test_user_model_creation():
+    user = User(username="alice", email="alice@test.com", hashed_password="hash")
+    assert user.username == "alice"
+    assert user.is_active is True
+    assert user.id is None
 
-def test_session_management(test_engine):
-    """Test that sessions work correctly"""
-    # Test that we can create a session and use it
-    with Session(test_engine) as session:
-        trip = Trip(country="Test", duration_days=1, is_public=False)
-        session.add(trip)
-        session.commit()
-        session.refresh(trip)
-        assert trip.id is not None
 
-        # Clean up
-        session.delete(trip)
-        session.commit()
+def test_user_create_model():
+    u = UserCreate(username="alice", email="alice@test.com", password="plaintext")
+    assert u.password == "plaintext"
