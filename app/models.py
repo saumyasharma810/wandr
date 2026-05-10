@@ -1,24 +1,27 @@
 from sqlmodel import SQLModel, Field
-from datetime import datetime
+from datetime import datetime, date, timezone
+from enum import Enum
 
-class TripBase(SQLModel):
-    country: str = Field(default=None)
-    duration_days: int = Field(default=None)
+# ── enums ──────────────────────────────────────────
 
-class Trip(TripBase, table=True):
-    id: int | None = Field(default = None, primary_key=True)
-    is_public: bool = Field(default=False)
+class VibeTag(str, Enum):
+    loved_it = "loved_it"
+    mixed = "mixed"
+    never_again = "never_again"
+    neutral = "neutral"
 
-class TripPublic(TripBase):
-    id: int
+class TravelStyle(str, Enum):
+    solo = "solo"
+    couple = "couple"
+    group = "group"
+    family = "family"
 
-class TripCreate(TripBase):
-    is_public: bool | None
+class BudgetLevel(str, Enum):
+    backpacker = "backpacker"
+    mid = "mid"
+    luxury = "luxury"
 
-class TripUpdate(SQLModel):       
-    country: str | None = None
-    duration_days: int | None = None
-    is_public: bool | None = None
+# ── user ───────────────────────────────────────────
 
 class UserBase(SQLModel):
     username: str = Field(unique=True, index=True)
@@ -28,17 +31,92 @@ class User(UserBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
     hashed_password: str
     is_active: bool = Field(default=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class UserCreate(SQLModel):
     username: str
     email: str
-    password: str          # plain text — will be hashed before saving
+    password: str
 
 class UserPublic(UserBase):
     id: int
 
-class RefreshToken(SQLModel, table=True):
-    tokenHash: str = Field(default=None, primary_key=True)
+# ── trip ───────────────────────────────────────────
+
+class TripBase(SQLModel):
+    country: str
+    city: str | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+    duration_days: int | None = None
+    vibe: VibeTag | None = None
+    notes: str | None = None
+    highlight: str | None = None
+    lowlight: str | None = None
+    would_return: bool | None = None
+    is_public: bool = Field(default=False)
+    travel_style: TravelStyle | None = None
+    budget_level: BudgetLevel | None = None
+
+class Trip(TripBase, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class TripCreate(TripBase):
+    pass  # user_id auto-set from JWT token in endpoint
+
+class TripPublic(TripBase):
+    id: int
     user_id: int
+    created_at: datetime
+
+class TripUpdate(SQLModel):
+    country: str | None = None
+    city: str | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+    duration_days: int | None = None
+    vibe: VibeTag | None = None
+    notes: str | None = None
+    highlight: str | None = None
+    lowlight: str | None = None
+    would_return: bool | None = None
+    is_public: bool | None = None
+    travel_style: TravelStyle | None = None
+    budget_level: BudgetLevel | None = None
+
+# ── stranger tip ───────────────────────────────────
+
+class StrangerTipBase(SQLModel):
+    country: str
+    city: str
+    content: str
+    is_public: bool = Field(default=True)
+
+class StrangerTip(StrangerTipBase, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int | None = Field(
+        default=None,
+        foreign_key="user.id",
+        index=True
+    )  # nullable — anonymous tips allowed
+    helpful_count: int = Field(default=0)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class StrangerTipCreate(StrangerTipBase):
+    pass
+
+class StrangerTipPublic(StrangerTipBase):
+    id: int
+    helpful_count: int
+    created_at: datetime
+
+# ── refresh token ──────────────────────────────────
+
+class RefreshToken(SQLModel, table=True):
+    tokenHash: str = Field(primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
     expires_at: datetime
-    is_revoked: bool = Field(default=False)
+    is_revoked: bool = Field(default=False)  # add this for logout support
