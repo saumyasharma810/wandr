@@ -1,41 +1,17 @@
 # Wandr
 
-A FastAPI-based travel trip management application with SQLModel and SQLite database integration.
+A FastAPI-based travel trip management application with JWT authentication, SQLModel, and SQLite.
 
 ## Features
 
 - **Trip Management**: Full CRUD operations for travel trips
-- **Database Integration**: SQLite database with SQLModel (SQLAlchemy + Pydantic)
-- **API Endpoints**:
-  - GET /trips - Retrieve all trips (with pagination)
-  - GET /trips/{id} - Retrieve a specific trip by ID
-  - POST /trips - Create a new trip
-  - PATCH /trips/{id} - Update an existing trip
-  - DELETE /trips/{id} - Delete a trip
-- **Data Models**: TripBase, Trip, TripCreate, TripPublic, TripUpdate with proper validation
-- **Authentication**: JWT-based user registration and login with OAuth2 Bearer tokens
-- **Testing**: Comprehensive pytest suite with isolated database tests
-- **Migrations**: Alembic support for database schema changes
+- **Authentication**: JWT access + refresh token flow with Argon2 password hashing
+- **Rate Limiting**: Brute-force protection on login and refresh endpoints
+- **Database**: SQLite with SQLModel (SQLAlchemy + Pydantic)
+- **Testing**: pytest suite with isolated database fixtures
+- **Migrations**: Alembic support for schema changes
 
 ## Setup
-
-1. Copy environment example:
-   ```bash
-   cp .env.example .env
-   ```
-
-2. Edit `.env` and fill values:
-   ```env
-   SECRET_KEY=your-secret-key
-   ALGORITHM=HS256
-   ACCESS_TOKEN_EXPIRE_MINUTES=30
-   ```
-
-3. Create and activate virtual environment:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
 
 1. Clone the repository:
    ```bash
@@ -43,10 +19,10 @@ A FastAPI-based travel trip management application with SQLModel and SQLite data
    cd wandr
    ```
 
-2. Create and activate virtual environment:
+2. Create and activate a virtual environment:
    ```bash
    python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   source venv/bin/activate  # Windows: venv\Scripts\activate
    ```
 
 3. Install dependencies:
@@ -54,33 +30,63 @@ A FastAPI-based travel trip management application with SQLModel and SQLite data
    pip install -r requirements.txt
    ```
 
-4. Run the application:
+4. Copy and configure environment variables:
    ```bash
-   uvicorn app.main:app --reload
+   cp .env.example .env
+   ```
+   Edit `.env`:
+   ```env
+   SECRET_KEY=your-long-random-secret-key
+   ALGORITHM=HS256
+   ACCESS_TOKEN_EXPIRE_MINUTES=30
+   REFRESH_TOKEN_EXPIRE_DAYS=7
    ```
 
-   Or using FastAPI CLI:
+5. Run the application:
    ```bash
    fastapi dev app/main.py
    ```
 
-## Testing
-
-Run the test suite:
-```bash
-pytest
-```
-
 ## API Documentation
 
-Once running, visit `http://localhost:8000/docs` for interactive API documentation.
+Visit `http://localhost:8000/docs` for interactive Swagger UI once the server is running.
 
 ## Authentication
 
-- `POST /auth/register`: register a new user
-- `POST /auth/login`: obtain a JWT bearer token
-- Protected routes require the header `Authorization: Bearer <token>`
-- Use the Swagger UI `Authorize` button after login to call secured endpoints
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/auth/register` | Create a new user account |
+| POST | `/auth/login` | Login and receive access + refresh tokens |
+| POST | `/auth/refresh` | Exchange a refresh token for new tokens |
+| POST | `/auth/logout` | Invalidate a refresh token |
+
+### Token Flow
+
+1. **Register** → `POST /auth/register` with `{ username, email, password }`
+2. **Login** → `POST /auth/login` (form data) → returns `{ access_token, refresh_token, token_type }`
+3. **Protected requests** → send `Authorization: Bearer <access_token>` header
+4. **Token expired** → server returns `401 { "detail": "Token Expired" }` → call `/auth/refresh`
+5. **Refresh** → `POST /auth/refresh` with `{ refresh_token }` → returns new token pair (old refresh token is invalidated)
+6. **Logout** → `POST /auth/logout` with `{ refresh_token }` → invalidates the refresh token
+
+Protected routes require `Authorization: Bearer <access_token>`. Use the Swagger UI **Authorize** button after login to test secured endpoints.
+
+## Trip Endpoints
+
+| Method | Endpoint | Description | Auth required |
+|---|---|---|---|
+| GET | `/trips` | List all trips (pagination supported) | No |
+| GET | `/trips/{id}` | Get a trip by ID | No |
+| POST | `/trips` | Create a new trip | No |
+| PATCH | `/trips/{id}` | Update a trip | No |
+| DELETE | `/trips/{id}` | Delete a trip | No |
+| GET | `/users/me` | Get current user profile | Yes |
+
+## Testing
+
+```bash
+pytest
+```
 
 ## Project Structure
 
@@ -88,27 +94,30 @@ Once running, visit `http://localhost:8000/docs` for interactive API documentati
 wandr/
 ├── app/
 │   ├── __init__.py
-│   ├── main.py          # FastAPI application with endpoints
-│   ├── models.py        # SQLModel data models (Trip, TripCreate, etc.)
-│   └── database.py      # Database engine and session management
+│   ├── main.py        # FastAPI app and trip endpoints
+│   ├── auth.py        # Auth routes and JWT logic
+│   ├── models.py      # SQLModel table definitions
+│   ├── schemas.py     # Pydantic request/response schemas
+│   ├── config.py      # Settings loaded from .env
+│   └── database.py    # DB engine and session
 ├── tests/
-│   ├── conftest.py      # Pytest fixtures and configuration
-│   ├── test_models.py   # Tests for models and database operations
-│   └── test_trips.py    # API endpoint tests
+│   ├── conftest.py    # Pytest fixtures
+│   ├── test_models.py # Model and DB tests
+│   └── test_trips.py  # API endpoint tests
 ├── alembic/
-│   └── versions/        # Database migration scripts
-├── alembic.ini          # Alembic configuration
-├── requirements.txt     # Python dependencies
-├── pyproject.toml       # Project configuration
-├── render.yaml          # Render deployment configuration
-├── .gitignore           # Git ignore rules
-└── README.md            # This file
+│   └── versions/      # Migration scripts
+├── alembic.ini
+├── requirements.txt
+├── pyproject.toml
+├── render.yaml
+├── .env.example
+└── README.md
 ```
 
 ## Database
 
-The application uses SQLite with SQLModel for type-safe database operations. Database tables are created automatically on startup. For production deployments, consider using a more robust database like PostgreSQL.
+SQLite with SQLModel for type-safe operations. Tables are created automatically on startup. For production, use PostgreSQL.
 
 ## Deployment
 
-This project is configured for deployment on Render. See `render.yaml` for deployment settings.
+Configured for Render — see `render.yaml`.

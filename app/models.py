@@ -1,4 +1,5 @@
 from sqlmodel import SQLModel, Field
+from datetime import datetime
 
 class TripBase(SQLModel):
     country: str = Field(default=None)
@@ -35,3 +36,8 @@ class UserCreate(SQLModel):
 
 class UserPublic(UserBase):
     id: int
+
+class RefreshToken(SQLModel, table=True):
+    tokenHash: str = Field(default=None, primary_key=True)
+    user_id: int
+    expires_at: datetime

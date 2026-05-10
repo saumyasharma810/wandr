@@ -1,10 +1,15 @@
 from typing import Annotated
-from fastapi import FastAPI, HTTPException, Query, Depends
+from fastapi import FastAPI, HTTPException, Query, Depends, Request
 from sqlmodel import select
 from app.models import Trip, TripCreate, TripPublic, TripUpdate, User, UserPublic
 from app.database import create_db_and_tables,Session, get_session
 from contextlib import asynccontextmanager
 from app.auth import router as auth_router, get_current_active_user
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+
+limiter = Limiter(key_func=get_remote_address)
 
 # define SessionDep locally in main.py
 SessionDep = Annotated[Session, Depends(get_session)]
@@ -20,12 +25,16 @@ app = FastAPI(lifespan=lifespan)
 
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
 
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
 @app.get("/")
 def home():
     return {"message": "hello"}
 
 @app.get("/users/me", response_model=UserPublic)
-def read_users_me(current_user: Annotated[User, Depends(get_current_active_user)]):
+def read_users_me(current_user: CurrentUser):
     return current_user
 
 @app.get("/trips", response_model=list[TripPublic])
@@ -36,7 +45,8 @@ def get_all_trips(session: SessionDep, offset: int = 0,
     return trips
 
 @app.get("/trips/{id}", response_model=TripPublic)
-def get_trip(id:int, session: SessionDep) -> Trip:
+@limiter.limit("1/minute")
+def get_trip(id:int, session: SessionDep, request: Request) -> Trip:
     trip = session.get(Trip, id)
     if not trip:
         raise HTTPException(status_code=404, detail="Trip not found")
