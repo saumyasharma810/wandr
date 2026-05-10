@@ -177,10 +177,11 @@ def refresh_token(token: RefreshTokenRequest, session: SessionDep, request: Requ
         raise token_timeout_exception
     except InvalidTokenError:
         raise credentials_exception
-    existing_token = session.execute(select(RefreshToken).where(RefreshToken.tokenHash == hash_token(token.refresh_token))).scalars().first()
+    existing_token = session.execute(select(RefreshToken).where(RefreshToken.tokenHash == hash_token(token.refresh_token), RefreshToken.is_revoked == False)).scalars().first()
     if not existing_token:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
-    session.delete(existing_token)
+    existing_token.is_revoked = True
+    session.add(existing_token)
     session.commit()
     user_id = payload.get("user_id")
     user_db = session.execute(select(User).where(User.id == user_id)).scalars().first()
@@ -198,9 +199,10 @@ def refresh_token(token: RefreshTokenRequest, session: SessionDep, request: Requ
 
 @router.post("/logout")
 def logout(token: RefreshTokenRequest, session: SessionDep):
-    existing_token = session.execute(select(RefreshToken).where(RefreshToken.tokenHash == hash_token(token.refresh_token))).scalars().first()
+    existing_token = session.execute(select(RefreshToken).where(RefreshToken.tokenHash == hash_token(token.refresh_token), RefreshToken.is_revoked == False)).scalars().first()
     if not existing_token:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
-    session.delete(existing_token)
+    existing_token.is_revoked = True
+    session.add(existing_token)
     session.commit()
     return {"status": "ok"}

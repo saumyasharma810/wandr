@@ -41,3 +41,4 @@ class RefreshToken(SQLModel, table=True):
     tokenHash: str = Field(default=None, primary_key=True)
     user_id: int
     expires_at: datetime
+    is_revoked: bool = Field(default=False)
