@@ -7,7 +7,7 @@ A FastAPI-based travel trip management application with JWT authentication, SQLM
 - **Trip Management**: Full CRUD operations for travel trips
 - **Authentication**: JWT access + refresh token flow with Argon2 password hashing
 - **Rate Limiting**: Brute-force protection on login and refresh endpoints
-- **Database**: SQLite with SQLModel (SQLAlchemy + Pydantic)
+- **Database**: PostgreSQL with SQLModel and Alembic migrations
 - **Testing**: pytest suite with isolated database fixtures
 - **Migrations**: Alembic support for schema changes
 
@@ -40,9 +40,15 @@ A FastAPI-based travel trip management application with JWT authentication, SQLM
    ALGORITHM=HS256
    ACCESS_TOKEN_EXPIRE_MINUTES=30
    REFRESH_TOKEN_EXPIRE_DAYS=7
+   DATABASE_URL=postgresql://user:password@localhost:5432/wandr
    ```
 
-5. Run the application:
+5. Run migrations:
+   ```bash
+   alembic upgrade head
+   ```
+
+6. Run the application:
    ```bash
    fastapi dev app/main.py
    ```
@@ -75,11 +81,11 @@ Protected routes require `Authorization: Bearer <access_token>`. Use the Swagger
 
 | Method | Endpoint | Description | Auth required |
 |---|---|---|---|
-| GET | `/trips` | List all trips (pagination supported) | No |
-| GET | `/trips/{id}` | Get a trip by ID | No |
-| POST | `/trips` | Create a new trip | No |
-| PATCH | `/trips/{id}` | Update a trip | No |
-| DELETE | `/trips/{id}` | Delete a trip | No |
+| GET | `/trips` | List your trips (pagination supported) | Yes |
+| GET | `/trips/{id}` | Get one of your trips by ID | Yes |
+| POST | `/trips` | Create a new trip | Yes |
+| PATCH | `/trips/{id}` | Update your trip | Yes |
+| DELETE | `/trips/{id}` | Delete your trip | Yes |
 | GET | `/users/me` | Get current user profile | Yes |
 
 ## Testing
@@ -116,7 +122,31 @@ wandr/
 
 ## Database
 
-SQLite with SQLModel for type-safe operations. Tables are created automatically on startup. For production, use PostgreSQL.
+PostgreSQL via SQLModel and Alembic for schema migrations.
+
+### Setting up PostgreSQL
+
+1. **Create the database** in psql:
+   ```sql
+   CREATE DATABASE wandr;
+   ```
+
+2. **Set the connection URL** in your `.env`:
+   ```env
+   DATABASE_URL=postgresql://your_user:your_password@localhost:5432/wandr
+   ```
+
+3. **Run migrations** to create all tables:
+   ```bash
+   alembic upgrade head
+   ```
+
+4. **Start the app** — it will connect to PostgreSQL automatically:
+   ```bash
+   fastapi dev app/main.py
+   ```
+
+> To generate a new migration after changing models: `alembic revision --autogenerate -m "describe change"`
 
 ## Deployment
 

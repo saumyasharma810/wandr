@@ -49,12 +49,12 @@ def get_all_trips(current_user: CurrentUser, session: SessionDep, offset: int = 
     return trips
 
 @app.get("/trips/{id}", response_model=TripPublic)
-@limiter.limit("1/minute")
+@limiter.limit("10/minute")
 def get_trip(id: int, current_user: CurrentUser, session: SessionDep, request: Request) -> Trip:
     trip = session.get(Trip, id)
     if not trip:
         raise HTTPException(status_code=404, detail="Trip not found")
-    if trip.user_id != current_user.id:
+    if trip.user_id != current_user.id and not trip.is_public:
         raise HTTPException(status_code=403, detail="Not your trip")
     return trip
 
