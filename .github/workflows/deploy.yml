@@ -7,36 +7,32 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.14'
-      
-      - name: Install dependencies
-        run: pip install -r requirements.txt
+          python-version: '3.12'
 
-      - name: Run migrations
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: alembic upgrade head  # ← this runs automatically
-      
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
       - name: Run tests
         env:
-          DATABASE_URL: sqlite+aiosqlite:///:memory:
+          DATABASE_URL: sqlite:///:memory:
           SECRET_KEY: test-secret-key-for-ci
           ALGORITHM: HS256
           ACCESS_TOKEN_EXPIRE_MINUTES: 30
+          REFRESH_TOKEN_EXPIRE_DAYS: 7
         run: PYTHONPATH=. pytest tests/ -v
-  
+
   deploy:
     needs: test
     runs-on: ubuntu-latest
     if: success()
-    
+
     steps:
       - name: Deploy to Render
         run: |
