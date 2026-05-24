@@ -8,4 +8,5 @@ PyJWT==2.12.1
 pwdlib[argon2]==0.3.0
 slowapi==0.1.9
 psycopg2-binary==2.9.12
-python-multipart
+python-multipart==0.0.26
+loguru==0.7.3

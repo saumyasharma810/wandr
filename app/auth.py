@@ -14,6 +14,7 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 import hashlib
 import uuid
+from loguru import logger
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -138,6 +139,7 @@ def register(user: UserCreate, session: SessionDep):
     session.add(db_user)
     session.commit()
     session.refresh(db_user)
+    logger.info(f"New user registered: {user.username}")
     return db_user
 
 @router.post("/login")
@@ -145,6 +147,7 @@ def register(user: UserCreate, session: SessionDep):
 def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], session: SessionDep, request: Request) -> Token:
     user = authenticate_user(form_data.username, form_data.password, session)
     if not user:
+        logger.warning(f"Failed login attempt for: {form_data.username}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
@@ -156,6 +159,7 @@ def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], session: S
     )
     refresh_token_expires = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     refresh_token = create_refresh_token(data={"user_id":user.id},session=session,expires_delta=refresh_token_expires)
+    logger.info(f"User logged in: {user.username}")
     return Token(access_token=access_token, refresh_token=refresh_token ,token_type="bearer")
 
 
