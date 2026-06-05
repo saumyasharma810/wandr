@@ -10,3 +10,8 @@ slowapi==0.1.9
 psycopg2-binary==2.9.12
 python-multipart==0.0.26
 loguru==0.7.3
+aiosqlite==0.22.1
+asyncpg==0.31.0
+greenlet==3.5.1
+httpx==0.28.1
+pytest-asyncio==1.4.0

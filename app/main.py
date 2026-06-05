@@ -3,7 +3,7 @@ from fastapi import FastAPI, HTTPException, Query, Depends, Request
 from fastapi.responses import JSONResponse
 from sqlmodel import select
 from app.models import Trip, TripCreate, TripPublic, TripUpdate, User, UserPublic
-from app.database import create_db_and_tables, Session, get_session
+from app.database import create_db_and_tables, AsyncSession, get_session
 from contextlib import asynccontextmanager
 from app.auth import router as auth_router, get_current_active_user
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -15,12 +15,12 @@ import time
 
 limiter = Limiter(key_func=get_remote_address)
 
-SessionDep = Annotated[Session, Depends(get_session)]
+SessionDep = Annotated[AsyncSession, Depends(get_session)]
 CurrentUser = Annotated[User, Depends(get_current_active_user)]
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-   create_db_and_tables()
+   await create_db_and_tables()
    yield
 
 app = FastAPI(lifespan=lifespan)
@@ -64,21 +64,22 @@ def read_users_me(current_user: CurrentUser):
     return current_user
 
 @app.get("/trips", response_model=list[TripPublic])
-def get_all_trips(current_user: CurrentUser, session: SessionDep, offset: int = 0,
+async def get_all_trips(current_user: CurrentUser, session: SessionDep, offset: int = 0,
     limit: Annotated[int, Query(le=100)] = 100,
 ):
-    trips = session.execute(
+    trips = await session.execute(
         select(Trip)
         .where(Trip.user_id == current_user.id)
         .offset(offset)
         .limit(limit)
-    ).scalars().all()
+    )
+    trips = trips.scalars().all()
     return trips
 
 @app.get("/trips/{id}", response_model=TripPublic)
 @limiter.limit("10/minute")
-def get_trip(id: int, current_user: CurrentUser, session: SessionDep, request: Request) -> Trip:
-    trip = session.get(Trip, id)
+async def get_trip(id: int, current_user: CurrentUser, session: SessionDep, request: Request) -> Trip:
+    trip = await session.get(Trip, id)
     if not trip:
         raise HTTPException(status_code=404, detail="Trip not found")
     if trip.user_id != current_user.id and not trip.is_public:
@@ -86,27 +87,27 @@ def get_trip(id: int, current_user: CurrentUser, session: SessionDep, request: R
     return trip
 
 @app.post("/trips", response_model=TripPublic)
-def add_trip(trip: TripCreate, current_user: CurrentUser, session: SessionDep) -> Trip:
+async def add_trip(trip: TripCreate, current_user: CurrentUser, session: SessionDep) -> Trip:
     db_trp = Trip.model_validate(trip.model_dump() | {"user_id": current_user.id})
     session.add(db_trp)
-    session.commit()
-    session.refresh(db_trp)
+    await session.commit()
+    await session.refresh(db_trp)
     return db_trp
 
 @app.delete("/trips/{id}")
-def delete_trip(id: int, current_user: CurrentUser, session: SessionDep):
-    trip = session.get(Trip, id)
+async def delete_trip(id: int, current_user: CurrentUser, session: SessionDep):
+    trip = await session.get(Trip, id)
     if not trip:
         raise HTTPException(status_code=404, detail="Trip not found")
     if trip.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not your trip")
-    session.delete(trip)
-    session.commit()
+    await session.delete(trip)
+    await session.commit()
     return {"status": "ok"}
 
 @app.patch("/trips/{id}", response_model=TripPublic)
-def update_trip(id: int, trip: TripUpdate, current_user: CurrentUser, session: SessionDep):
-    trip_db = session.get(Trip, id)
+async def update_trip(id: int, trip: TripUpdate, current_user: CurrentUser, session: SessionDep):
+    trip_db = await session.get(Trip, id)
     if not trip_db:
         raise HTTPException(status_code=404, detail="Trip not found")
     if trip_db.user_id != current_user.id:
@@ -115,6 +116,6 @@ def update_trip(id: int, trip: TripUpdate, current_user: CurrentUser, session: S
     trip_data["updated_at"] = datetime.now(timezone.utc)
     trip_db.sqlmodel_update(trip_data)
     session.add(trip_db)
-    session.commit()
-    session.refresh(trip_db)
+    await session.commit()
+    await session.refresh(trip_db)
     return trip_db

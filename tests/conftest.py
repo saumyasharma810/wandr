@@ -1,30 +1,29 @@
 import pytest
-from fastapi.testclient import TestClient
-from sqlmodel import SQLModel, Session, create_engine
+import pytest_asyncio
+from httpx import AsyncClient, ASGITransport
+from sqlmodel import SQLModel
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.pool import StaticPool
 from app.main import app
 from app.database import get_session
 
 
-@pytest.fixture(name="session")
-def session_fixture():
-    engine = create_engine(
-        "sqlite://",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    SQLModel.metadata.create_all(engine)
-    with Session(engine) as session:
+@pytest_asyncio.fixture(name="session")
+async def session_fixture():
+    engine = create_async_engine("sqlite+aiosqlite://", poolclass=StaticPool)
+    async with engine.begin() as conn:
+        await conn.run_sync(SQLModel.metadata.create_all)
+    async with AsyncSession(engine, expire_on_commit=False) as session:
         yield session
 
 
-@pytest.fixture(name="client")
-def client_fixture(session: Session):
-    def override():
+@pytest_asyncio.fixture(name="client")
+async def client_fixture(session: AsyncSession):
+    async def override():
         yield session
 
     app.dependency_overrides[get_session] = override
-    with TestClient(app) as c:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
     app.dependency_overrides.clear()
 
@@ -41,23 +40,19 @@ def reset_rate_limits():
             pass
 
 
-# ── helpers ────────────────────────────────────────────────────────────────────
-
-def register(client: TestClient, username="alice", email="alice@test.com", password="secret123"):
-    return client.post("/auth/register", json={
+async def register(client, username="alice", email="alice@test.com", password="secret123"):
+    return await client.post("/auth/register", json={
         "username": username, "email": email, "password": password,
     })
 
+async def login(client, username="alice", password="secret123"):
+    return await client.post("/auth/login", data={"username": username, "password": password})
 
-def login(client: TestClient, username="alice", password="secret123"):
-    return client.post("/auth/login", data={"username": username, "password": password})
-
-
-def get_tokens(client: TestClient, username="alice", password="secret123") -> dict:
-    r = login(client, username, password)
+async def get_tokens(client, username="alice", password="secret123") -> dict:
+    r = await login(client, username, password)
     assert r.status_code == 200, r.text
     return r.json()
 
-
-def auth_headers(client: TestClient, username="alice", password="secret123") -> dict:
-    return {"Authorization": f"Bearer {get_tokens(client, username, password)['access_token']}"}
+async def auth_headers(client, username="alice", password="secret123") -> dict:
+    tokens = await get_tokens(client, username, password)
+    return {"Authorization": f"Bearer {tokens['access_token']}"}

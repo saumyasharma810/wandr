@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, HTTPException, Depends, status, Request
 from sqlmodel import select
 from app.models import UserCreate, User, UserPublic, RefreshToken
-from app.database import Session, get_session
+from app.database import get_session, AsyncSession
 from pwdlib import PasswordHash
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from app.config import settings
@@ -23,7 +23,7 @@ password_hash = PasswordHash.recommended()
 
 router = APIRouter()
 
-SessionDep = Annotated[Session, Depends(get_session)]
+SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
 DUMMY_HASH = password_hash.hash("dummypassword")
 
@@ -42,12 +42,13 @@ def verify_password(password:str, hashed_password: str) -> bool:
     return password_hash.verify(password, hashed_password)
 
 # get user from db
-def get_user(username: str, session: Session):
-    return session.execute(select(User).where(User.username == username)).scalars().first()
+async def get_user(username: str, session: AsyncSession):
+    result = await session.execute(select(User).where(User.username == username))
+    return result.scalars().first()
 
 # authenticate is user in db and verify password
-def authenticate_user(username: str, password: str, session: Session):
-    user = get_user(username=username, session=session)
+async def authenticate_user(username: str, password: str, session: AsyncSession):
+    user = await get_user(username=username, session=session)
     if not user:
         verify_password(password, DUMMY_HASH)
         return False
@@ -67,7 +68,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     return encoded_jwt
 
 # create refresh token
-def create_refresh_token(data: dict, session: Session, expires_delta: timedelta | None = None):
+async def create_refresh_token(data: dict, session: AsyncSession, expires_delta: timedelta | None = None):
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
@@ -82,13 +83,13 @@ def create_refresh_token(data: dict, session: Session, expires_delta: timedelta 
         expires_at=expire,
     )
     session.add(db_refresh_token)
-    session.commit()
-    session.refresh(db_refresh_token)
+    await session.commit()
+    await session.refresh(db_refresh_token)
     return encoded_jwt
 
 
 # get current user from jwt
-def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], session: SessionDep):
+async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], session: SessionDep):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -109,7 +110,7 @@ def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], session: Ses
         raise token_timeout_exception
     except InvalidTokenError:
         raise credentials_exception
-    user = get_user(username=token_data.username, session=session)
+    user = await get_user(username=token_data.username, session=session)
     if user is None:
         raise credentials_exception
     return user
@@ -124,11 +125,13 @@ def get_current_active_user(
 
 
 @router.post("/register", response_model=UserPublic)
-def register(user: UserCreate, session: SessionDep):
-    existing_user = session.execute(select(User).where(User.username == user.username)).scalars().first()
+async def register(user: UserCreate, session: SessionDep):
+    existing_user_result = await session.execute(select(User).where(User.username == user.username))
+    existing_user = existing_user_result.scalars().first()
     if existing_user:
         raise HTTPException(status_code=409, detail="Username already present")
-    existing_email = session.execute(select(User).where(User.email == user.email)).scalars().first()
+    existing_email = await session.execute(select(User).where(User.email == user.email))
+    existing_email = existing_email.scalars().first()
     if existing_email:
         raise HTTPException(status_code=409, detail="Email already present")
     db_user = User(
@@ -137,15 +140,15 @@ def register(user: UserCreate, session: SessionDep):
         hashed_password=get_password_hash(user.password),
     )
     session.add(db_user)
-    session.commit()
-    session.refresh(db_user)
+    await session.commit()
+    await session.refresh(db_user)
     logger.info(f"New user registered: {user.username}")
     return db_user
 
 @router.post("/login")
 @limiter.limit("10/minute")
-def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], session: SessionDep, request: Request) -> Token:
-    user = authenticate_user(form_data.username, form_data.password, session)
+async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], session: SessionDep, request: Request) -> Token:
+    user = await authenticate_user(form_data.username, form_data.password, session)
     if not user:
         logger.warning(f"Failed login attempt for: {form_data.username}")
         raise HTTPException(
@@ -158,14 +161,14 @@ def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], session: S
         data={"sub": user.username}, expires_delta=access_token_expires
     )
     refresh_token_expires = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-    refresh_token = create_refresh_token(data={"user_id":user.id},session=session,expires_delta=refresh_token_expires)
+    refresh_token = await create_refresh_token(data={"user_id":user.id},session=session,expires_delta=refresh_token_expires)
     logger.info(f"User logged in: {user.username}")
     return Token(access_token=access_token, refresh_token=refresh_token ,token_type="bearer")
 
 
 @router.post("/refresh")
 @limiter.limit("10/minute")
-def refresh_token(token: RefreshTokenRequest, session: SessionDep, request: Request):
+async def refresh_token(token: RefreshTokenRequest, session: SessionDep, request: Request):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -182,14 +185,16 @@ def refresh_token(token: RefreshTokenRequest, session: SessionDep, request: Requ
         raise token_timeout_exception
     except InvalidTokenError:
         raise credentials_exception
-    existing_token = session.execute(select(RefreshToken).where(RefreshToken.tokenHash == hash_token(token.refresh_token), RefreshToken.is_revoked == False)).scalars().first()
+    existing_token = await session.execute(select(RefreshToken).where(RefreshToken.tokenHash == hash_token(token.refresh_token), RefreshToken.is_revoked == False))
+    existing_token = existing_token.scalars().first()
     if not existing_token:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
     existing_token.is_revoked = True
     session.add(existing_token)
-    session.commit()
+    await session.commit()
     user_id = payload.get("user_id")
-    user_db = session.execute(select(User).where(User.id == user_id)).scalars().first()
+    user_db = await session.execute(select(User).where(User.id == user_id))
+    user_db = user_db.scalars().first()
     if not user_db:
         raise HTTPException(status_code=401, detail="User not found")
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -197,17 +202,18 @@ def refresh_token(token: RefreshTokenRequest, session: SessionDep, request: Requ
         data={"sub": user_db.username}, expires_delta=access_token_expires
     )
     refresh_token_expires = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-    refresh_token = create_refresh_token(data={"user_id":user_id},session=session,expires_delta=refresh_token_expires)
+    refresh_token = await create_refresh_token(data={"user_id":user_id},session=session,expires_delta=refresh_token_expires)
     return Token(access_token=access_token, refresh_token=refresh_token ,token_type="bearer")
 
 
 
 @router.post("/logout")
-def logout(token: RefreshTokenRequest, session: SessionDep):
-    existing_token = session.execute(select(RefreshToken).where(RefreshToken.tokenHash == hash_token(token.refresh_token), RefreshToken.is_revoked == False)).scalars().first()
+async def logout(token: RefreshTokenRequest, session: SessionDep):
+    existing_token = await session.execute(select(RefreshToken).where(RefreshToken.tokenHash == hash_token(token.refresh_token), RefreshToken.is_revoked == False))
+    existing_token = existing_token.scalars().first()
     if not existing_token:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
     existing_token.is_revoked = True
     session.add(existing_token)
-    session.commit()
+    await session.commit()
     return {"status": "ok"}
