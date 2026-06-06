@@ -113,7 +113,7 @@ async def update_trip(id: int, trip: TripUpdate, current_user: CurrentUser, sess
     if trip_db.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not your trip")
     trip_data = trip.model_dump(exclude_unset=True)
-    trip_data["updated_at"] = datetime.now(timezone.utc)
+    trip_data["updated_at"] = datetime.now(timezone.utc).replace(tzinfo=None)
     trip_db.sqlmodel_update(trip_data)
     session.add(trip_db)
     await session.commit()

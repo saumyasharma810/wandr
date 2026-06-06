@@ -71,9 +71,9 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
 async def create_refresh_token(data: dict, session: AsyncSession, expires_delta: timedelta | None = None):
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
+        expire = (datetime.now(timezone.utc) + expires_delta).replace(tzinfo=None)
     else:
-        expire = datetime.now(timezone.utc) + timedelta(days=7)
+        expire = (datetime.now(timezone.utc) + timedelta(days=7)).replace(tzinfo=None)
     to_encode.update({"exp": expire, "jti": str(uuid.uuid4())})
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     hashed_encoded_jwt = hash_token(encoded_jwt)
