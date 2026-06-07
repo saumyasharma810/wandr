@@ -1,6 +1,7 @@
 from sqlmodel import SQLModel, Field
 from datetime import datetime, date, timezone
 from enum import Enum
+from pydantic import field_validator
 
 # ── enums ──────────────────────────────────────────
 
@@ -120,3 +121,27 @@ class RefreshToken(SQLModel, table=True):
     user_id: int = Field(foreign_key="user.id", index=True)
     expires_at: datetime
     is_revoked: bool = Field(default=False)  # add this for logout support
+
+
+# chat
+
+class ChatRequest(SQLModel):
+    message: str
+    conversation_id: int | None = None
+
+    @field_validator("conversation_id")
+    @classmethod
+    def must_be_positive(cls, v):
+        if v is not None and v < 1:
+            raise ValueError("conversation_id must be a positive integer")
+        return v
+
+class ChatMessage(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    conversation_id: int = Field(index=True)
+    role: str
+    content: str
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
+    )

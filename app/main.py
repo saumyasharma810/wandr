@@ -6,6 +6,7 @@ from app.models import Trip, TripCreate, TripPublic, TripUpdate, User, UserPubli
 from app.database import create_db_and_tables, AsyncSession, get_session
 from contextlib import asynccontextmanager
 from app.auth import router as auth_router, get_current_active_user
+from app.chat import router as chat_router
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -21,11 +22,13 @@ CurrentUser = Annotated[User, Depends(get_current_active_user)]
 @asynccontextmanager
 async def lifespan(app: FastAPI):
    await create_db_and_tables()
+   logger.info("Wandr API started — DB tables ready")
    yield
 
 app = FastAPI(lifespan=lifespan)
 
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
+app.include_router(chat_router, prefix="/chat", tags=["chat"])
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
