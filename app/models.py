@@ -107,12 +107,19 @@ class StrangerTip(StrangerTipBase, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
 class StrangerTipCreate(StrangerTipBase):
-    pass
+    is_anonymous: bool = False
+
+class StrangerTipUpdate(SQLModel):
+    country: str | None = None
+    city: str | None = None
+    content: str | None = None
+    is_public: bool | None = None
 
 class StrangerTipPublic(StrangerTipBase):
     id: int
     helpful_count: int
     created_at: datetime
+    username: str | None  # None if anonymous
 
 # ── refresh token ──────────────────────────────────
 
