@@ -9,6 +9,7 @@ from app.config import settings
 from anthropic import AsyncAnthropic
 from datetime import datetime, timezone
 from loguru import logger
+import json
 
 router = APIRouter()
 client = AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
@@ -132,6 +133,8 @@ async def chat(
                 )
                 session.add(assistant_msg)
                 await session.commit()
+
+                yield f"data: {json.dumps({'full_text': full_text})}\n\n"
         except Exception as e:
             logger.error(f"Stream error: user_id={current_user.id} conv={conversation_id} {e}")
             yield "data: [ERROR]\n\n"

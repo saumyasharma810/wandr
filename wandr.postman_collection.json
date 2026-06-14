@@ -28,6 +28,11 @@
       "key": "conversationId",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "tipId",
+      "value": "",
+      "type": "string"
     }
   ],
   "item": [
@@ -279,6 +284,111 @@
             "method": "DELETE",
             "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
             "url": { "raw": "{{baseUrl}}/trips/{{tripId}}", "host": ["{{baseUrl}}"], "path": ["trips", "{{tripId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tips",
+      "item": [
+        {
+          "name": "List Tips",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tips?city=Tokyo&country=Japan",
+              "host": ["{{baseUrl}}"],
+              "path": ["tips"],
+              "query": [
+                { "key": "city", "value": "Tokyo", "description": "Optional filter by city" },
+                { "key": "country", "value": "Japan", "description": "Optional filter by country" },
+                { "key": "offset", "value": "0", "disabled": true },
+                { "key": "limit", "value": "15", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Tip (authenticated)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "pm.collectionVariables.set('tipId', res.id);",
+                  "console.log('Tip ID saved:', res.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/tips", "host": ["{{baseUrl}}"], "path": ["tips"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"country\": \"Japan\",\n  \"city\": \"Tokyo\",\n  \"content\": \"Amazing ramen in Shibuya — try Ichiran for solo dining.\",\n  \"is_public\": true,\n  \"is_anonymous\": false\n}"
+            }
+          }
+        },
+        {
+          "name": "Create Tip (anonymous)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "pm.collectionVariables.set('tipId', res.id);",
+                  "console.log('Tip ID saved:', res.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/tips", "host": ["{{baseUrl}}"], "path": ["tips"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"country\": \"France\",\n  \"city\": \"Paris\",\n  \"content\": \"Book Eiffel Tower tickets 2 weeks in advance.\",\n  \"is_public\": true,\n  \"is_anonymous\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Tip",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/tips/{{tipId}}", "host": ["{{baseUrl}}"], "path": ["tips", "{{tipId}}"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Updated: Amazing ramen in Shibuya — Ichiran is great but also try Fuunji.\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Upvote Tip",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/tips/{{tipId}}/helpful", "host": ["{{baseUrl}}"], "path": ["tips", "{{tipId}}", "helpful"] }
+          }
+        },
+        {
+          "name": "Delete Tip",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/tips/{{tipId}}", "host": ["{{baseUrl}}"], "path": ["tips", "{{tipId}}"] }
           }
         }
       ]

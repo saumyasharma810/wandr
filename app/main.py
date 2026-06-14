@@ -8,11 +8,13 @@ from app.auth import router as auth_router, get_current_active_user
 from app.chat import router as chat_router
 from app.trips import router as trip_router
 from app.tips import router as tips_router
+from app.config import settings
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from loguru import logger
 import time
+from fastapi.middleware.cors import CORSMiddleware
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -26,6 +28,14 @@ async def lifespan(app: FastAPI):
    yield
 
 app = FastAPI(lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
 app.include_router(chat_router, prefix="/chat", tags=["chat"])
@@ -56,7 +66,6 @@ async def global_exception_handler(request: Request, exc: Exception):
         status_code=500,
         content={"detail": "Internal server error"}
     )
-
 
 
 

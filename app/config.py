@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int
     DATABASE_URL: str
     ANTHROPIC_API_KEY: str
+    ALLOWED_ORIGINS: list[str] = ["http://localhost:3000"]
 
     model_config = SettingsConfigDict(env_file=".env")
 
