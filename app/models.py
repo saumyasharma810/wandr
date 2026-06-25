@@ -1,4 +1,5 @@
 from sqlmodel import SQLModel, Field
+from sqlalchemy import Column, Integer, ForeignKey
 from datetime import datetime, date, timezone
 from enum import Enum
 from pydantic import field_validator
@@ -42,51 +43,114 @@ class UserCreate(SQLModel):
 class UserPublic(UserBase):
     id: int
 
-# ── trip ───────────────────────────────────────────
+# ── trip stop (defined before Trip so TripStopCreate can be used in TripCreate) ──
 
-class TripBase(SQLModel):
+class TripStopCreate(SQLModel):
+    city: str
     country: str
+    arrival_date: date
+    departure_date: date
+    vibe: VibeTag
+    notes: str | None = None
+    highlight: str | None = None
+    lowlight: str | None = None
+    would_return: bool
+    order: int | None = None  # auto-assigned if omitted
+
+class TripStopUpdate(SQLModel):
     city: str | None = None
-    start_date: date | None = None
-    end_date: date | None = None
-    duration_days: int | None = None
+    country: str | None = None
+    arrival_date: date | None = None
+    departure_date: date | None = None
     vibe: VibeTag | None = None
     notes: str | None = None
     highlight: str | None = None
     lowlight: str | None = None
     would_return: bool | None = None
-    is_public: bool = Field(default=False)
-    travel_style: TravelStyle | None = None
-    budget_level: BudgetLevel | None = None
+    order: int | None = None
 
-class Trip(TripBase, table=True):
+class TripStopPublic(SQLModel):
+    id: int
+    trip_id: int
+    city: str
+    country: str
+    arrival_date: date
+    departure_date: date
+    vibe: VibeTag
+    notes: str | None = None
+    highlight: str | None = None
+    lowlight: str | None = None
+    would_return: bool
+    order: int
+    created_at: datetime
+
+class TripStop(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    trip_id: int = Field(
+        sa_column=Column(
+            Integer,
+            ForeignKey("trip.id", ondelete="CASCADE"),
+            index=True,
+            nullable=False,
+        )
+    )
+    city: str
+    country: str
+    arrival_date: date
+    departure_date: date
+    vibe: VibeTag
+    notes: str | None = None
+    highlight: str | None = None
+    lowlight: str | None = None
+    would_return: bool
+    order: int = Field(default=0)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+
+# ── trip ───────────────────────────────────────────
+
+class Trip(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="user.id", index=True)
+    title: str | None = None
+    start_date: date
+    end_date: date
+    travel_style: TravelStyle
+    budget_level: BudgetLevel
+    is_public: bool = Field(default=True)
+    ai_summary: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
-class TripCreate(TripBase):
-    pass  # user_id auto-set from JWT token in endpoint
+class TripCreate(SQLModel):
+    title: str | None = None
+    start_date: date
+    end_date: date
+    travel_style: TravelStyle
+    budget_level: BudgetLevel
+    is_public: bool = True
+    stops: list[TripStopCreate]
 
-class TripPublic(TripBase):
+class TripPublic(SQLModel):
     id: int
     user_id: int
+    title: str | None = None
+    start_date: date
+    end_date: date
+    travel_style: TravelStyle
+    budget_level: BudgetLevel
+    is_public: bool
+    ai_summary: str | None = None
     created_at: datetime
+    stops: list[TripStopPublic] = []
+    countries: list[str] = []  # derived: distinct countries ordered by earliest arrival_date
 
 class TripUpdate(SQLModel):
-    country: str | None = None
-    city: str | None = None
+    title: str | None = None
     start_date: date | None = None
     end_date: date | None = None
-    duration_days: int | None = None
-    vibe: VibeTag | None = None
-    notes: str | None = None
-    highlight: str | None = None
-    lowlight: str | None = None
-    would_return: bool | None = None
-    is_public: bool | None = None
     travel_style: TravelStyle | None = None
     budget_level: BudgetLevel | None = None
+    is_public: bool | None = None
 
 # ── stranger tip ───────────────────────────────────
 

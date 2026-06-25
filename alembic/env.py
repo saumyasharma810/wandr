@@ -8,7 +8,7 @@ from sqlalchemy.engine import Connection
 from alembic import context
 
 from sqlmodel import SQLModel
-from app.models import User, Trip, RefreshToken, StrangerTip, ChatMessage  # noqa: F401 — must import all table models so SQLModel.metadata is fully populated
+from app.models import User, Trip, TripStop, RefreshToken, StrangerTip, ChatMessage  # noqa: F401 — must import all table models so SQLModel.metadata is fully populated
 from app.config import settings
 
 config = context.config
